@@ -1,0 +1,64 @@
+name: Build and test python
+
+on:
+  push:
+    branches-ignore: [ "main" ]
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+
+    pull_request:
+      branches-ignore: [ "main" ]
+      paths-ignore:
+        - "docs/**"
+        - "*.md"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    if:
+      github.event_name == 'push' || github.event.pull_request.head.repo.full_name !=
+      github.repository
+
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.9", "3.10"]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install poetry
+      run: pipx install poetry
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: "poetry"
+    - run: poetry install --no-interaction
+    - run: poetry add pytest pytest-cov black flake8 isort mypy --no-interaction
+
+    - name: Test with pytest
+      run: poetry run pytest --cov src
+
+    - name: Run black linter
+      run: poetry run black src --check --verbose
+
+    - name: Run flake8 linter
+      run:
+        poetry run flake8 . --exclude '.*' --max-complexity=10 --ignore=E203
+        --max-line-length=120 --statistics
+
+    - name: Run isort
+      run: poetry run isort --profile black --check-only .
+
+    - name: Run mypy
+      run: poetry run mypy -v --strict
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3

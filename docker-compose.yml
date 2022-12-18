@@ -1,0 +1,11 @@
+version: "3"
+
+services:
+  ml-api:
+    build: .
+    tty: true
+    stdin_open: true
+    volumes:
+      - ./src:/opt/code/src
+    ports:
+      - "5001:80"
